@@ -27,7 +27,7 @@ class TwitchBot:
         if message:
             self.last_message = message
             self.messages_sent += 1
-            self.delay_time = random.randint(30, 120)
+            self.delay_time = random.randint(400, 500)
             self.next_message_time = time.time() + self.delay_time
         if channel:
             self.current_channel = channel
@@ -81,7 +81,7 @@ class TwitchBot:
                 
                 irc.close()
                 
-                delay = random.randint(30, 120)
+                delay = random.randint(400, 500)
                 self.update_status("Aguardando")
                 time.sleep(delay)
 
