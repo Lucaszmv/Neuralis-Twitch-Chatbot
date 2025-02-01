@@ -7,6 +7,7 @@ import os
 from modules.bot import TwitchBot
 from modules.interface import console, update_interface, bot_logo
 from modules.logger import setup_logging
+from threading import Semaphore
 
 # Estilo personalizado para o questionary
 custom_style = QuestionaryStyle([
@@ -79,17 +80,23 @@ def run_bot_manager():
     with open('configs/proxy.txt', 'r', encoding='utf-8') as f:
         proxies = [line.strip() for line in f if line.strip()]
 
+    # Criar semáforo para controlar o acesso
+    token_semaphore = Semaphore(1)  # Alterado para 1 para garantir que apenas um token envie por vez
+    
     bots = []
     threads = []
 
     # Criar bots
     for i, (token, proxy) in enumerate(zip(tokens, proxies), 1):
-        bot = TwitchBot(token, selected_channels, messages, proxy)
+        bot = TwitchBot(token, selected_channels, messages, proxy, token_semaphore)
         bots.append(bot)
 
     clear_screen()
-    # Iniciar interface
+    # Iniciar interface primeiro
     with Live(console=console, refresh_per_second=1) as live:
+        update_interface(bots, tokens, selected_channels)
+        
+        # Depois iniciar as threads
         for i, bot in enumerate(bots, 1):
             thread = threading.Thread(
                 target=bot.connect_and_send,
@@ -98,6 +105,7 @@ def run_bot_manager():
             )
             threads.append(thread)
             thread.start()
+            time.sleep(0.5)
 
         while True:
             update_interface(bots, tokens, selected_channels)

@@ -6,11 +6,12 @@ import socks
 from datetime import datetime
 
 class TwitchBot:
-    def __init__(self, token, channels, messages, proxy):
+    def __init__(self, token, channels, messages, proxy, semaphore):
         self.token = token
         self.channels = channels
         self.messages = messages
         self.proxy = proxy
+        self.semaphore = semaphore
         self.server = "irc.chat.twitch.tv"
         self.port = 6667
         self.running = True
@@ -40,47 +41,55 @@ class TwitchBot:
     def connect_and_send(self):
         while self.running:
             try:
-                # Configurar proxy
-                proxy_parts = self.proxy.split(':')
-                proxy_host = proxy_parts[0]
-                proxy_port = int(proxy_parts[1])
-                proxy_user = proxy_parts[2]
-                proxy_pass = proxy_parts[3]
+                # Adquirir semáforo antes de enviar mensagens
+                with self.semaphore:
+                    # Configurar proxy
+                    proxy_parts = self.proxy.split(':')
+                    proxy_host = proxy_parts[0]
+                    proxy_port = int(proxy_parts[1])
+                    proxy_user = proxy_parts[2]
+                    proxy_pass = proxy_parts[3]
 
-                self.update_status("Conectando")
+                    self.update_status("Conectando")
 
-                # Criar socket com proxy
-                irc = socks.socksocket()
-                irc.set_proxy(
-                    proxy_type=socks.SOCKS5,
-                    addr=proxy_host,
-                    port=proxy_port,
-                    username=proxy_user,
-                    password=proxy_pass
-                )
-                
-                irc.connect((self.server, self.port))
-                
-                # Autenticar
-                irc.send(f"PASS oauth:{self.token}\n".encode("utf-8"))
-                irc.send(f"NICK bot\n".encode("utf-8"))
-                
-                response = irc.recv(2048).decode("utf-8")
-                self.update_status("Autenticado")
-                
-                # Entrar no canal e enviar mensagem
-                for channel in self.channels:
-                    irc.send(f"JOIN #{channel}\n".encode("utf-8"))
-                    time.sleep(1)
+                    # Criar socket com proxy
+                    irc = socks.socksocket()
+                    irc.set_proxy(
+                        proxy_type=socks.SOCKS5,
+                        addr=proxy_host,
+                        port=proxy_port,
+                        username=proxy_user,
+                        password=proxy_pass
+                    )
                     
-                    message = random.choice(self.messages)
-                    irc.send(f"PRIVMSG #{channel} :{message}\n".encode("utf-8"))
+                    irc.connect((self.server, self.port))
                     
-                    self.update_status("Mensagem Enviada", message, channel)
-                    logging.info(f"Bot {self.token[:8]} enviou via {proxy_host} em #{channel}: {message}")
-                
-                irc.close()
-                
+                    # Autenticar
+                    irc.send(f"PASS oauth:{self.token}\n".encode("utf-8"))
+                    irc.send(f"NICK bot\n".encode("utf-8"))
+                    
+                    response = irc.recv(2048).decode("utf-8")
+                    self.update_status("Autenticado")
+                    
+                    # Entrar no canal e enviar mensagem
+                    for channel in self.channels:
+                        irc.send(f"JOIN #{channel}\n".encode("utf-8"))
+                        time.sleep(1)
+                        
+                        message = random.choice(self.messages)
+                        irc.send(f"PRIVMSG #{channel} :{message}\n".encode("utf-8"))
+                        
+                        self.update_status("Mensagem Enviada", message, channel)
+                        logging.info(f"Bot {self.token[:8]} enviou via {proxy_host} em #{channel}: {message}")
+                    
+                    irc.close()
+                    
+                    # Aguardar entre 20-40 segundos antes de liberar o semáforo para o próximo token
+                    delay_between_tokens = random.randint(20, 40)
+                    self.update_status(f"Aguardando Próximo Token ({delay_between_tokens}s)")
+                    time.sleep(delay_between_tokens)
+
+                # Delay fora do semáforo para o próprio bot
                 delay = random.randint(400, 500)
                 self.update_status("Aguardando")
                 time.sleep(delay)
