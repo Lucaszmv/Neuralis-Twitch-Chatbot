@@ -4,6 +4,7 @@ from rich.panel import Panel
 from rich.box import SQUARE
 from rich.align import Align
 from datetime import datetime
+from collections import Counter
 
 console = Console()
 
@@ -56,7 +57,7 @@ def create_stats_table(bots, channels):
     
     return stats
 
-def create_status_table(bots):
+def create_status_summary_table(bots):
     table = Table(
         box=SQUARE,
         border_style="magenta",
@@ -66,42 +67,42 @@ def create_status_table(bots):
         header_style="white"
     )
     
-    table.add_column("BOT", style="white", width=5, justify="center")
     table.add_column("STATUS", style="white", width=20, justify="center")
-    table.add_column("CHANNEL", style="white", width=14, justify="center")
-    table.add_column("USER IP", style="white", width=20, justify="center")
-    table.add_column("UPTIME", style="white", width=15, justify="center")
+    table.add_column("BOTS", style="white", width=15, justify="center")
+    table.add_column("ÚLTIMO CANAL", style="white", width=20, justify="center")
+    table.add_column("MENSAGENS ENVIADAS", style="white", width=20, justify="center")
     
-    for i, bot in enumerate(bots, 1):
-        # Definir cores para cada status
-        status_colors = {
-            "STARTING": "cyan",
-            "CONNECTING": "blue",
-            "AUTHENTICATED": "blue",
-            "SENT": "green",
-            "WAITING": "yellow",
-            "ERROR": "red"
-        }
-        
+    # Contar bots por status
+    status_count = Counter(bot.status for bot in bots)
+    total_messages = sum(bot.messages_sent for bot in bots)
+    last_channel = next((bot.current_channel for bot in bots if bot.current_channel), "Nenhum")
+    
+    # Pegar o status mais relevante para mostrar
+    priority_order = ["Erro", "Mensagem Enviada", "Autenticado", "Conectando", "Aguardando", "Iniciando"]
+    current_status = None
+    for status in priority_order:
+        if status in status_count:
+            current_status = status
+            break
+    
+    if current_status:
         status_translations = {
-            "Iniciando": "STARTING",
-            "Conectando": "CONNECTING",
-            "Autenticado": "AUTHENTICATED",
-            "Mensagem Enviada": "SENT",
-            "Aguardando": "WAITING",
-            "Erro": "ERROR"
+            "Iniciando": ("STARTING", "cyan"),
+            "Conectando": ("CONNECTING", "blue"),
+            "Autenticado": ("AUTHENTICATED", "blue"),
+            "Mensagem Enviada": ("SENT", "green"),
+            "Aguardando": ("WAITING", "yellow"),
+            "Erro": ("ERROR", "red")
         }
         
-        current_status = status_translations.get(bot.status, bot.status.upper())
-        status_color = status_colors.get(current_status, "white")
-        status_symbol = "●" if bot.status != "Erro" else "○"
+        translated_status, color = status_translations.get(current_status, (current_status.upper(), "white"))
+        status_symbol = "●" if current_status != "Erro" else "○"
         
         table.add_row(
-            f"{i:02d}",
-            f"[{status_color}]{status_symbol} {current_status}[/{status_color}]",
-            bot.current_channel or "Waiting...",
-            bot.proxy.split(':')[0] or "Waiting IP...",
-            format_elapsed_time(bot.start_time)
+            f"[{color}]{status_symbol} {translated_status}[/{color}]",
+            str(len(bots)),  # Total de bots
+            last_channel,
+            str(total_messages)
         )
     
     return table
@@ -111,8 +112,8 @@ def update_interface(bots, tokens, channels):
     display_header()
     
     stats_table = create_stats_table(bots, channels)
-    status_table = create_status_table(bots)
+    status_table = create_status_summary_table(bots)  # Usando a nova função
     
     console.print(Align.center(stats_table))
     console.print(Align.center(status_table))
-    console.print("")  # Mantendo apenas uma linha em branco no final 
+    console.print("") 
