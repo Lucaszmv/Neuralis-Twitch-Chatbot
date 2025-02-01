@@ -116,4 +116,12 @@ def update_interface(bots, tokens, channels):
     
     console.print(Align.center(stats_table))
     console.print(Align.center(status_table))
-    console.print("") 
+    console.print("")
+
+def bot_logo():
+    logo = """
+[white bold]                          NEURALIS[/white bold]
+      [magenta]────────────────────────────────────────────────[/magenta]
+[white]            Made by: [bold]Velbots[/bold] │ Version: 1.0.0[/white]
+      [magenta]────────────────────────────────────────────────[/magenta]"""
+    console.print(Align.center(logo))
